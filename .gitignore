@@ -1,4 +1,6 @@
-# Logs
+# -----------------------------
+# Log files
+# -----------------------------
 logs
 *.log
 npm-debug.log*
@@ -7,12 +9,17 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# -----------------------------
+# Node modules and build outputs
+# -----------------------------
 node_modules
 dist
 dist-ssr
 *.local
 
-# Editor directories and files
+# -----------------------------
+# IDEs and editors
+# -----------------------------
 .vscode/*
 !.vscode/extensions.json
 .idea
@@ -22,3 +29,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# -----------------------------
+# Miscellaneous
+# -----------------------------
+TODO.md

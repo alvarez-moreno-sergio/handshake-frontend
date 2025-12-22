@@ -1,6 +1,6 @@
 import type {EncryptedPayload} from './hybrid';
 import {hybridEncryptPayload, hybridDecryptPayload} from './hybrid';
-import {signData, verifySignature} from './rsa';
+import {signData, verifySignature, importPublicKey, importSigningPublicKey} from './rsa';
 
 export interface SignedEncryptedPayload {
     encryptedPayload: EncryptedPayload;
@@ -9,17 +9,15 @@ export interface SignedEncryptedPayload {
 
 export async function encryptAndSignPayload(
     message: string,
-    receiverRSAPublicKey: CryptoKey,
-    senderRSAPrivateSigningKey: CryptoKey
+    receiverRSAPublicKeyString: string | null | undefined,
+    senderRSAPrivateSigningKey: CryptoKey | null | undefined
 ): Promise<SignedEncryptedPayload> {
+    if (!receiverRSAPublicKeyString || !senderRSAPrivateSigningKey) {
+        throw new Error('Invalid keys provided for encryption/signing');
+    }
+    const receiverRSAPublicKey = await importPublicKey(receiverRSAPublicKeyString);
     const encryptedPayload = await hybridEncryptPayload(message, receiverRSAPublicKey);
-    const serializedPayload = JSON.stringify({
-        encryptedAESKey: Array.from(new Uint8Array(encryptedPayload.encryptedAESKey)),
-        encryptedAESPayload: {
-            iv: encryptedPayload.encryptedAESPayload.iv,
-            cipherText: Array.from(new Uint8Array(encryptedPayload.encryptedAESPayload.cipherText)),
-        },
-    });
+    const serializedPayload = serializeForSigning(encryptedPayload);
     const signature = await signData(serializedPayload, senderRSAPrivateSigningKey);
     
     return { encryptedPayload, signature };
@@ -27,19 +25,43 @@ export async function encryptAndSignPayload(
 
 export async function verifyAndDecrypt(
     signedEncryptedPayload: SignedEncryptedPayload,
-    receiverRSAPrivateKey: CryptoKey,
-    senderRSAPublicSigningKey: CryptoKey
+    receiverRSAPrivateKey: CryptoKey | null | undefined,
+    senderRSAPublicSigningKeyString: string | null | undefined
 ): Promise<string> {
-    const serialized = JSON.stringify({
-        encryptedAESKey: Array.from(new Uint8Array(signedEncryptedPayload.encryptedPayload.encryptedAESKey)),
-        encryptedAESPayload: {
-            iv: signedEncryptedPayload.encryptedPayload.encryptedAESPayload.iv,
-            cipherText: Array.from(new Uint8Array(signedEncryptedPayload.encryptedPayload.encryptedAESPayload.cipherText)),
-        }
-    });
+    if (!receiverRSAPrivateKey || !senderRSAPublicSigningKeyString) {
+        throw new Error('Invalid keys provided for decryption/verification');
+    }
+    const senderRSAPublicSigningKey = await importSigningPublicKey(senderRSAPublicSigningKeyString);
+    const serialized = serializeForSigning(signedEncryptedPayload.encryptedPayload);
 
     const valid = await verifySignature(serialized, signedEncryptedPayload.signature, senderRSAPublicSigningKey);
     if (!valid) throw new Error('Signature verification failed');
 
     return hybridDecryptPayload(signedEncryptedPayload.encryptedPayload, receiverRSAPrivateKey);
+}
+
+function serializeForSigning(payload: EncryptedPayload): string {
+  return JSON.stringify({
+    encryptedAESKey: Array.from(
+      new Uint8Array(payload.encryptedAESKey)
+    ),
+    encryptedAESPayload: {
+      iv: Array.from(
+        new Uint8Array(bufferSourceToArrayBuffer(payload.encryptedAESPayload.iv))
+      ),
+      cipherText: Array.from(
+        new Uint8Array(payload.encryptedAESPayload.cipherText)
+      ),
+    },
+  });
+}
+
+function bufferSourceToArrayBuffer(src: BufferSource): ArrayBuffer {
+  if (src instanceof ArrayBuffer) {
+    return src;
+  }
+  return src.buffer.slice(
+    src.byteOffset,
+    src.byteOffset + src.byteLength
+  );
 }

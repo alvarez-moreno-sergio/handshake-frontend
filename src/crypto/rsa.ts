@@ -55,3 +55,35 @@ export async function verifySignature(data: string | ArrayBuffer, signature: Arr
         buffer
     );
 }
+
+export async function exportPublicKey(key: CryptoKey): Promise<string> {
+  const jwk = await crypto.subtle.exportKey("jwk", key);
+  return JSON.stringify(jwk);
+}
+export async function importPublicKey(jwkString: string): Promise<CryptoKey> {
+  const jwk = JSON.parse(jwkString);
+  return crypto.subtle.importKey(
+    "jwk",
+    jwk,
+    {
+      name: "RSA-OAEP",
+      hash: "SHA-256",
+    },
+    true,       // extractable
+    ["encrypt"] // OAEP public keys are used for encryption
+  );
+}
+export async function importSigningPublicKey(jwkString: string): Promise<CryptoKey> {
+  const jwk = JSON.parse(jwkString);
+  return crypto.subtle.importKey(
+    "jwk",
+    jwk,
+    {
+      name: "RSA-PSS",
+      hash: "SHA-256",
+    },
+    true,        // extractable
+    ["verify"]   // PSS public keys are used for signature verification
+  );
+}
+
