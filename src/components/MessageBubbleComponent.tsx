@@ -1,18 +1,42 @@
-import { Box, Typography } from "@mui/material";
+import { Box, Typography, Avatar } from "@mui/material";
 import type { SignedEncryptedPayload } from "../crypto/hybrid-signed";
+
 export type Sender = "me" | "them";
 export type MessageBubble = {
     id: string;
     sender: Sender;
     text: string;
+    avatarUrl?: string | null;
     encryptedPayload?: SignedEncryptedPayload | null;
 };
 const MessageBubbleComponent = (msg : MessageBubble) => {
     return (
+            <Box
+                sx={{
+                    display: "flex",
+                    alignItems: "flex-end",
+                    gap: 1,
+                    alignSelf: msg.sender === "me" ? "flex-end" : "flex-start",
+                    flexDirection: msg.sender === "me" ? "row-reverse" : "row",
+                }}
+                >
+                {/* Avatar */}
+                <Avatar
+                    src={msg.avatarUrl || undefined}
+                    sx={{
+                    width: 28,
+                    height: 28,
+                    fontSize: 14,
+                    bgcolor: msg.sender === "me" ? "primary.main" : "secondary.main",
+                    }}
+                >
+                    {msg.sender === "me" ? "Me" : "?"}
+                </Avatar>
+
+                {/* Message bubble */}
                 <Box
                     id={msg.id}
                     sx={{
-                    alignSelf: msg.sender === "me" ? "flex-end" : "flex-start",
                     bgcolor: msg.sender === "me" ? "primary.main" : "secondary.main",
                     color: "white",
                     p: 1.5,
@@ -22,6 +46,7 @@ const MessageBubbleComponent = (msg : MessageBubble) => {
                 >
                     <Typography variant="body2">{msg.text}</Typography>
                 </Box>
+            </Box>
     );
 };
 

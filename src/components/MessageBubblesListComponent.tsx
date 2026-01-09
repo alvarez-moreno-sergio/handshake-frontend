@@ -16,12 +16,14 @@ type MessageBubblesListComponentProps = {
 const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand } : MessageBubblesListComponentProps) => {
     const isDisabled = chatStatus !== "ready";
     const selectedHandRef = useRef<ApiSafeHand | null>(selectedHand || null);
+    const peerAvatarRef = useRef<string | undefined>(undefined);
     const bottomRef = useRef<HTMLDivElement | null>(null);
     const [inputText, setInputText] = useState("");
     const [messages, setMessages] = useState<MessageBubble[]>([]);
 
     useEffect(() => {
         selectedHandRef.current = selectedHand ?? null;
+        peerAvatarRef.current = selectedHand?.avatarUrl;
     }, [selectedHand]);
     
     const SendMessage = async (sender: Sender, text: string) => {
@@ -32,6 +34,7 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand 
             id: Date.now().toString(),
             sender,
             text,
+            avatarUrl: ownHand?.avatarUrl || null,
             encryptedPayload: await encryptAndSignPayload(trimmed, selectedHand?.publicKey, ownHand?.signKeyPair?.privateKey)
         };
         console.log("Encrypted payload:", JSON.stringify(encodeTransport(newMessage.encryptedPayload!), null, 2));
@@ -88,6 +91,7 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand 
             const newMessage: MessageBubble = {
                 id: Date.now().toString(),
                 sender: "them",
+                avatarUrl: peerAvatarRef.current,
                 text: trimmed
             };
             setMessages(prev => [...prev, newMessage]);
