@@ -26,9 +26,9 @@
 
 ## 0. Live Demo
 
-[Watch presentation video](./presentation.mp4)
+[Watch presentation video](https://drive.google.com/file/d/1Li-FCevAMBBmXq-1D_iuGNmmpD2eTOK_/view?usp=sharing)
 
-https://handshake-frontend.onrender.com
+Or access the live demo [here](https://handshake-frontend.onrender.com)
 
 ---
 
