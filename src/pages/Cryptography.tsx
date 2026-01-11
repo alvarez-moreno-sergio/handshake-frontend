@@ -1,4 +1,4 @@
-import { Typography, Button, Box } from "@mui/material";
+import { Typography, Box } from "@mui/material";
 import CryptographyComponent from "../components/CryptographyComponent";
 
 const Cryptography = () => {

@@ -22,6 +22,7 @@ import {
 } from "../crypto/rsa";
 
 type ChatStatus = "idle" | "connecting" | "ready" | "error";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Chat = () => {
   const HEADER_HEIGHT = 72;
@@ -57,7 +58,7 @@ const Chat = () => {
   }, []);
 
   const registerHand = useCallback(async (apiSafeHand: ApiSafeHand, keyPair: CryptoKeyPair, signKeyPair: CryptoKeyPair): Promise<void> => {
-    const res = await fetch("http://localhost:3000/register", {
+    const res = await fetch(`${API_URL}/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(apiSafeHand)
@@ -87,7 +88,7 @@ const Chat = () => {
   }, []);
 
   const openWebSocket = useCallback((uuid: string): WebSocket => {
-    const ws = new WebSocket("ws://localhost:3000");
+    const ws = new WebSocket(`${API_URL.replace(/^http/, "ws")}`);
     wsRef.current = ws;
 
     ws.onopen = () => {

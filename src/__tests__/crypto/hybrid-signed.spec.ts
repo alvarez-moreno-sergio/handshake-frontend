@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateRSAKeys, generateRSASigningKeys } from '../../crypto/rsa';
+import { generateRSAKeys, generateRSASigningKeys, exportPublicKey } from '../../crypto/rsa';
 import type { SignedEncryptedPayload } from '../../crypto/hybrid-signed';
 import { encryptAndSignPayload, verifyAndDecrypt } from '../../crypto/hybrid-signed';
 
@@ -11,15 +11,15 @@ describe('Hybrid Signed Encryption', () => {
         const message = 'Hello Bob! This is Alice.';
 
         const signedPayload: SignedEncryptedPayload = await encryptAndSignPayload(
-        message,
-        bobKeys.publicKey,
-        aliceSigningKeys.privateKey
+            message,
+            await exportPublicKey(bobKeys.publicKey),
+            aliceSigningKeys.privateKey
         );
 
         const decryptedMessage = await verifyAndDecrypt(
-        signedPayload,
-        bobKeys.privateKey,
-        aliceSigningKeys.publicKey
+            signedPayload,
+            bobKeys.privateKey,
+            await exportPublicKey(aliceSigningKeys.publicKey)
         );
 
         expect(decryptedMessage).toBe(message);
@@ -32,9 +32,9 @@ describe('Hybrid Signed Encryption', () => {
         const message = 'Hello Bob! This is Alice.';
 
         const signedPayload: SignedEncryptedPayload = await encryptAndSignPayload(
-        message,
-        bobKeys.publicKey,
-        aliceSigningKeys.privateKey
+            message,
+            await exportPublicKey(bobKeys.publicKey),
+            aliceSigningKeys.privateKey
         );
 
         const tamperedSignature = new Uint8Array(signedPayload.signature);
@@ -42,8 +42,11 @@ describe('Hybrid Signed Encryption', () => {
         signedPayload.signature = tamperedSignature.buffer;
 
         await expect(
-        verifyAndDecrypt(signedPayload, bobKeys.privateKey, aliceSigningKeys.publicKey)
-        ).rejects.toThrow('Signature verification failed');
+            verifyAndDecrypt(
+                signedPayload, 
+                bobKeys.privateKey, 
+                await exportPublicKey(aliceSigningKeys.publicKey)
+        )).rejects.toThrow('Signature verification failed');
     });
 
     it('should fail decryption if payload is tampered', async () => {
@@ -53,9 +56,9 @@ describe('Hybrid Signed Encryption', () => {
         const message = 'Hello Bob! This is Alice.';
 
         const signedPayload: SignedEncryptedPayload = await encryptAndSignPayload(
-        message,
-        bobKeys.publicKey,
-        aliceSigningKeys.privateKey
+            message,
+            await exportPublicKey(bobKeys.publicKey),
+            aliceSigningKeys.privateKey
         );
 
         const tamperedPayload = signedPayload.encryptedPayload;
@@ -66,7 +69,10 @@ describe('Hybrid Signed Encryption', () => {
         signedPayload.encryptedPayload = tamperedPayload;
 
         await expect(
-        verifyAndDecrypt(signedPayload, bobKeys.privateKey, aliceSigningKeys.publicKey)
-        ).rejects.toThrow('Signature verification failed');
+            verifyAndDecrypt(
+                signedPayload,
+                bobKeys.privateKey,
+                await exportPublicKey(aliceSigningKeys.publicKey)
+        )).rejects.toThrow('Signature verification failed');
     });
 });
