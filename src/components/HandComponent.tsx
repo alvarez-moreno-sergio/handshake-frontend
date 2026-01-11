@@ -1,8 +1,8 @@
-import { Avatar, Box, Typography, CircularProgress } from "@mui/material";
+import { Avatar, Box, Typography, CircularProgress, Badge } from "@mui/material";
 
 export type Hand = {
     key: string | null;
-    uuid: number | null;
+    uuid: string | null;
     name: string;
     avatarUrl: string;
     keyPair: { publicKey: CryptoKey; privateKey: CryptoKey } | null;
@@ -15,7 +15,7 @@ export type Hand = {
 
 export type ApiSafeHand = {
   key: string | null;
-  uuid: number | null;
+  uuid: string | null;
   name: string;
   avatarUrl: string;
   publicKey: string;
@@ -27,12 +27,13 @@ export type ApiSafeHand = {
 export type ChatStatus = "idle" | "connecting" | "ready" | "error";
 
 type HandComponentProps = {
-    hand?: ApiSafeHand | null;
+    hand: ApiSafeHand;
     onClick?: () => void;
     chatStatus: ChatStatus;
+    unreadMap: Record<string, number>;
 };
 
-const HandComponent = ({ hand, onClick, chatStatus }: HandComponentProps) => {
+const HandComponent = ({ hand, onClick, chatStatus, unreadMap }: HandComponentProps) => {
     if (!hand) {
         return (
             <Typography variant="h6" sx={{p: 1.5}}>Messages</Typography>
@@ -59,7 +60,13 @@ const HandComponent = ({ hand, onClick, chatStatus }: HandComponentProps) => {
             }}
             onClick={onClick || (() => {})}
         >
+            <Badge
+                badgeContent={unreadMap[hand.uuid!] || 0}
+                invisible={(!unreadMap[hand.uuid!])}
+                color="error"
+            >
             <Avatar src={avatarUrl} />
+            </Badge>
             <Box sx={{ display: "flex", flexDirection: "column" }}>
                 <Typography variant="body1">{name}</Typography>
 
