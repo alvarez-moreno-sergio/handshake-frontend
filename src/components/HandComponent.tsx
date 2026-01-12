@@ -1,4 +1,5 @@
 import { Avatar, Box, Typography, CircularProgress, Badge } from "@mui/material";
+import { sanitizeDisplayName, sanitizeAvatarUrl } from "../helpers/xss";
 
 export type Hand = {
     key: string | null;
@@ -46,6 +47,9 @@ const HandComponent = ({ hand, onClick, chatStatus, unreadMap }: HandComponentPr
         selected = false,
         selectable = true
     } = hand;
+    const safeName = sanitizeDisplayName(name);
+    const safeAvatarUrl = sanitizeAvatarUrl(avatarUrl);
+
     return (
         <Box
             sx={{
@@ -65,10 +69,10 @@ const HandComponent = ({ hand, onClick, chatStatus, unreadMap }: HandComponentPr
                 invisible={(!unreadMap[hand.uuid!])}
                 color="error"
             >
-            <Avatar src={avatarUrl} />
+            <Avatar src={safeAvatarUrl} />
             </Badge>
             <Box sx={{ display: "flex", flexDirection: "column" }}>
-                <Typography variant="body1">{name}</Typography>
+                <Typography variant="body1">{safeName}</Typography>
 
                 {chatStatus === "connecting" && (
                     <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>

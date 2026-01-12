@@ -1,5 +1,6 @@
 import { Box, Typography, Avatar } from "@mui/material";
 import type { SignedEncryptedPayload } from "../crypto/hybrid-signed";
+import { sanitizeAvatarUrl } from "../helpers/xss";
 
 export type Sender = "me" | "them";
 export type MessageBubble = {
@@ -22,7 +23,7 @@ const MessageBubbleComponent = (msg : MessageBubble) => {
                 >
                 {/* Avatar */}
                 <Avatar
-                    src={msg.avatarUrl || undefined}
+                    src={sanitizeAvatarUrl(msg.avatarUrl!) || undefined}
                     sx={{
                     width: 28,
                     height: 28,

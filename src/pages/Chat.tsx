@@ -23,6 +23,8 @@ import {
 } from "../crypto/rsa";
 import { ArrayBufferSignatureToBase64 } from "../crypto/transport-codec"
 
+import { sanitizeDisplayName, sanitizeAvatarUrl, sanitizePeer } from "../helpers/xss";
+
 type ChatStatus = "idle" | "connecting" | "ready" | "error";
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -52,8 +54,8 @@ const Chat = () => {
     const apiSafeHand: ApiSafeHand = {
       key: null,
       uuid: null,
-      name,
-      avatarUrl,
+      name: sanitizeDisplayName(name),
+      avatarUrl: sanitizeAvatarUrl(avatarUrl),
       publicKey: await exportPublicKey(keyPair.publicKey),
       publicSignKey: await exportPublicKey(signKeyPair.publicKey)
     };
@@ -79,8 +81,8 @@ const Chat = () => {
     const localHand: Hand = {
       key: apiSafeHand.key,
       uuid: apiSafeHand.uuid,
-      avatarUrl: apiSafeHand.avatarUrl,
-      name: apiSafeHand.name,
+      avatarUrl: sanitizeAvatarUrl(apiSafeHand.avatarUrl),
+      name: sanitizeDisplayName(apiSafeHand.name),
       publicKey: keyPair.publicKey,
       publicSignKey: signKeyPair.publicKey,
       keyPair,
@@ -104,8 +106,14 @@ const Chat = () => {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      if (!data || typeof data !== "object" || typeof data.type !== "string") {
+        return;
+      }
+
       if (data.type === "peerList") {
-        const peers: ApiSafeHand[] = data.peers.filter((h: ApiSafeHand) => h.uuid !== handRef.current?.uuid);
+        const peers: ApiSafeHand[] = data.peers
+          .filter((h: ApiSafeHand) => h.uuid !== handRef.current?.uuid)
+          .map(sanitizePeer);
         setHandList(peers);
         setHandList((prevList) =>
           prevList.map((hand) => ({ ...hand, selected: hand.uuid === selectedHandRef.current?.uuid }))
@@ -162,8 +170,8 @@ const Chat = () => {
     const newHand : Hand = {
       key: apiSafeHand.key,
       uuid: apiSafeHand.uuid,
-      avatarUrl: apiSafeHand.avatarUrl,
-      name: apiSafeHand.name,
+      avatarUrl: sanitizeAvatarUrl(apiSafeHand.avatarUrl),
+      name: sanitizeDisplayName(apiSafeHand.name),
       publicKey: keyPair.publicKey,
       publicSignKey: signKeyPair.publicKey,
       keyPair,
@@ -401,7 +409,7 @@ const Chat = () => {
           <TextField
             label="Display name"
             value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
+            onChange={(e) => setDisplayName(sanitizeDisplayName(e.target.value))}
             fullWidth
             autoFocus
             required
@@ -410,7 +418,7 @@ const Chat = () => {
           <TextField
             label="Avatar URL"
             value={avatarUrl}
-            onChange={(e) => setAvatarUrl(e.target.value)}
+            onChange={(e) => setAvatarUrl(sanitizeAvatarUrl(e.target.value ?? ""))}
             fullWidth
             placeholder="https://…"
           />
