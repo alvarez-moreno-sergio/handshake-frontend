@@ -5,6 +5,7 @@ import SendIcon from "@mui/icons-material/Send";
 import { type Hand, type ApiSafeHand } from "./HandComponent";
 import { encryptAndSignPayload, verifyAndDecrypt, type SignedEncryptedPayload } from "../crypto/hybrid-signed";
 import { decodeTransport, encodeTransport, type TransportSignedEncryptedPayload } from "../crypto/transport-codec";
+import { sanitizeAvatarUrl } from "../helpers/xss";
 
 type MessageBubblesListComponentProps = {
     selectedHand?: ApiSafeHand | null;
@@ -54,7 +55,7 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
             id: Date.now().toString(),
             sender,
             text,
-            avatarUrl: ownHand?.avatarUrl || null,
+            avatarUrl: sanitizeAvatarUrl(ownHand!.avatarUrl),
             encryptedPayload: await encryptAndSignPayload(trimmed, selectedHand?.publicKey, ownHand?.signKeyPair?.privateKey)
         };
         console.log("Encrypted payload:", JSON.stringify(encodeTransport(newMessage.encryptedPayload!), null, 2));
@@ -118,7 +119,7 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
             const newMessage: MessageBubble = {
                 id: Date.now().toString(),
                 sender: "them",
-                avatarUrl: handSender.avatarUrl || null,
+                avatarUrl: sanitizeAvatarUrl(handSender.avatarUrl),
                 text: trimmed
             };
             appendMessage(from, newMessage);
@@ -136,6 +137,9 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
         const handleMessage = (event: MessageEvent) => {
             try {
                 const data = JSON.parse(event.data);
+                if (!data || typeof data !== "object" || typeof data.type !== "string") {
+                    return;
+                }
                 if (data.type === "message") {
                     ReceiveMessage(data.content, data.from);
                 }
