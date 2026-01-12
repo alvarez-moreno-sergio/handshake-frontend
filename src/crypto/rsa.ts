@@ -6,7 +6,7 @@ export async function generateRSAKeys(): Promise<{ publicKey: CryptoKey; private
             publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
             hash: 'SHA-256',
         },
-        true,
+        false,
         ['encrypt', 'decrypt']
     );
 
@@ -21,7 +21,7 @@ export async function generateRSASigningKeys(): Promise<{ publicKey: CryptoKey; 
             publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
             hash: 'SHA-256',
         },
-        true,
+        false,
         ['sign', 'verify']
     );
 }
