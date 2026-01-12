@@ -164,7 +164,7 @@ Environment variables are managed through Vite. Choose one of the following, or 
 VITE_API_URL=http://localhost:3000
 ```
 
-- Example `.env` for PRODUCTION environment:
+- In PRODUCTION environment, these env vars should be defined:
 
 ```
 VITE_API_URL=https://handshake-backend-y29h.onrender.com

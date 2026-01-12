@@ -2,7 +2,7 @@ export async function generateRSAKeys(): Promise<{ publicKey: CryptoKey; private
     const keyPair = await crypto.subtle.generateKey(
         {
             name: 'RSA-OAEP',
-            modulusLength: 2048,
+            modulusLength: 3072,
             publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
             hash: 'SHA-256',
         },
@@ -17,7 +17,7 @@ export async function generateRSASigningKeys(): Promise<{ publicKey: CryptoKey; 
     return crypto.subtle.generateKey(
         {
             name: 'RSA-PSS',
-            modulusLength: 2048,
+            modulusLength: 3072,
             publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
             hash: 'SHA-256',
         },

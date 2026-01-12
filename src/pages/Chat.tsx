@@ -18,8 +18,10 @@ import MessagesBubbleListComponent from "../components/MessagesBubblesListCompon
 import {
   generateRSAKeys,
   generateRSASigningKeys,
-  exportPublicKey
+  exportPublicKey,
+  signData
 } from "../crypto/rsa";
+import { ArrayBufferSignatureToBase64 } from "../crypto/transport-codec"
 
 type ChatStatus = "idle" | "connecting" | "ready" | "error";
 const API_URL = import.meta.env.VITE_API_URL;
@@ -37,6 +39,8 @@ const Chat = () => {
   const [chatStatus, setChatStatus] = useState<ChatStatus>("idle");
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
 
+  const selectedHandRef = useRef<ApiSafeHand | null>(null);
+  const rotatedKeysHandRef = useRef<Hand | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const handRef = useRef<Hand | null>(null);
   const [ownHand, setOwnHand] = useState<Hand | null>(null);
@@ -88,6 +92,8 @@ const Chat = () => {
   }, []);
 
   const openWebSocket = useCallback((uuid: string): WebSocket => {
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return wsRef.current;
+
     const ws = new WebSocket(`${API_URL.replace(/^http/, "ws")}`);
     wsRef.current = ws;
 
@@ -101,6 +107,39 @@ const Chat = () => {
       if (data.type === "peerList") {
         const peers: ApiSafeHand[] = data.peers.filter((h: ApiSafeHand) => h.uuid !== handRef.current?.uuid);
         setHandList(peers);
+        setHandList((prevList) =>
+          prevList.map((hand) => ({ ...hand, selected: hand.uuid === selectedHandRef.current?.uuid }))
+        );
+        const updatedSelectedHandArray: ApiSafeHand[] = peers.filter((h) => h.uuid === selectedHandRef.current?.uuid);
+        if (updatedSelectedHandArray.length !== 1) return;
+
+        const updatedSelectedHand: ApiSafeHand = updatedSelectedHandArray[0];
+        if (selectedHandRef.current?.publicKey !== updatedSelectedHand.publicKey) {
+          selectedHandRef.current = updatedSelectedHand;
+
+          setHandList((prevList) =>
+            prevList.map((hand) => ({ ...hand, selected: false, selectable: true }))
+          );
+          setHandList((prevList) =>
+            prevList.map((hand) => ({ ...hand, selected: hand.uuid === selectedHandRef.current?.uuid }))
+          );
+          setSelectedHand(selectedHandRef.current);
+        }
+      }
+
+      if (data.type === "ROTATE_KEYS_ACK") {
+        console.log(data);
+        if (rotatedKeysHandRef.current){
+          handRef.current = rotatedKeysHandRef.current;
+          setOwnHand(rotatedKeysHandRef.current);
+          rotatedKeysHandRef.current = null;
+          console.log("Keys rotated sucessfully.");
+        }
+      }
+
+      if (data.type === "ROTATE_KEYS_ERROR") {
+        console.log("Error rotating keys: ", data.error);
+        rotatedKeysHandRef.current = null;
       }
     };
 
@@ -108,12 +147,47 @@ const Chat = () => {
       console.error("WebSocket error:", err);
     };
 
-    ws.onclose = () => {
-      console.log("WebSocket closed");
+    ws.onclose = (event) => {
+      console.log("WebSocket closed: ", event);
     };
 
     return ws;
   }, []);
+
+  const rotateKeys = useCallback(async (): Promise<void> => {
+    const { apiSafeHand, keyPair, signKeyPair } = await setupLocalHand(ownHand!.name, ownHand!.avatarUrl);
+    apiSafeHand.uuid = ownHand!.uuid;
+    apiSafeHand.key = ownHand!.key;
+
+    const newHand : Hand = {
+      key: apiSafeHand.key,
+      uuid: apiSafeHand.uuid,
+      avatarUrl: apiSafeHand.avatarUrl,
+      name: apiSafeHand.name,
+      publicKey: keyPair.publicKey,
+      publicSignKey: signKeyPair.publicKey,
+      keyPair,
+      signKeyPair
+    };
+    rotatedKeysHandRef.current = newHand;
+
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      const payload = {
+        publicKey: await exportPublicKey(keyPair.publicKey),
+        publicSignKey: await exportPublicKey(signKeyPair.publicKey)
+      };
+
+      const signature: ArrayBuffer = await signData(JSON.stringify(payload), ownHand!.signKeyPair!.privateKey);
+      const message = {
+        type: "ROTATE_KEYS",
+        payload,
+        signature: ArrayBufferSignatureToBase64(signature)
+      };
+
+      wsRef.current.send(JSON.stringify(message));
+      return;
+    }
+  }, [ownHand, setupLocalHand]);
 
   // -----------------------------
   // Register + WebSocket lifecycle
@@ -170,6 +244,7 @@ const Chat = () => {
         setHandList(l => l.map(h => ({ ...h, selected: false })));
         return null;
       }
+      selectedHandRef.current = hand;
       return { ...hand, selectable: false };
     });
 
@@ -287,8 +362,12 @@ const Chat = () => {
             </Box>
 
             {/* Button always on the right */}
-            <Button variant="contained" sx={{ ml: "auto" }}>
-              Rotate keys
+            <Button 
+              variant="contained"
+              sx={{ ml: "auto" }}
+              onClick={async () => rotateKeys()}
+            >
+                Rotate keys
             </Button>
           </Box>
 

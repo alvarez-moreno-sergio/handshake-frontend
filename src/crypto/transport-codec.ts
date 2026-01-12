@@ -65,6 +65,10 @@ export function decodeTransport(
    Helpers
    =========================== */
 
+export function ArrayBufferSignatureToBase64(signature: ArrayBuffer): string {
+  return bufferToBase64(signature);
+}
+
 function toArrayBuffer(src: BufferSource): ArrayBuffer {
   return src instanceof ArrayBuffer ? src : src.buffer;
 }
