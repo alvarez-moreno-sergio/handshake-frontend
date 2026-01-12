@@ -136,11 +136,17 @@ const Chat = () => {
       }
 
       if (data.type === "ROTATE_KEYS_ACK") {
-        console.log(data);
         if (rotatedKeysHandRef.current){
+          const oldHand = handRef.current;
           handRef.current = rotatedKeysHandRef.current;
           setOwnHand(rotatedKeysHandRef.current);
           rotatedKeysHandRef.current = null;
+
+          if (oldHand) {
+            oldHand.keyPair = null;
+            oldHand.signKeyPair = null;
+          }
+
           console.log("Keys rotated sucessfully.");
         }
       }
