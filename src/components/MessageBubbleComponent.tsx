@@ -1,6 +1,7 @@
-import { Box, Typography, Avatar } from "@mui/material";
+import { Box, Typography, Avatar, Button } from "@mui/material";
 import type { SignedEncryptedPayload } from "../crypto/hybrid-signed";
 import { sanitizeAvatarUrl } from "../helpers/xss";
+import { useMemo } from "react";
 
 export type Sender = "me" | "them";
 export type MessageBubble = {
@@ -9,8 +10,21 @@ export type MessageBubble = {
     text: string;
     avatarUrl?: string | null;
     encryptedPayload?: SignedEncryptedPayload | null;
+    fileData?: Uint8Array<ArrayBufferLike> | ArrayBuffer;
+    fileName?: string;
 };
-const MessageBubbleComponent = (msg : MessageBubble) => {
+const MessageBubbleComponent = (msg : MessageBubble) => {    
+    const fileUrl = useMemo(() => {
+        const data = msg.fileData && msg.fileData instanceof Uint8Array
+            ? new Uint8Array(Array.from(msg.fileData)) // ensures standard ArrayBuffer
+            : new Uint8Array(msg.fileData!);
+
+        if (!data) return null;
+
+        const blob = new Blob([data]);
+        return URL.createObjectURL(blob);
+    }, [msg.fileData]);
+  
     return (
             <Box
                 sx={{
@@ -45,7 +59,24 @@ const MessageBubbleComponent = (msg : MessageBubble) => {
                     maxWidth: "70%",
                     }}
                 >
-                    <Typography variant="body2">{msg.text}</Typography>
+                    {!msg.fileData && <Typography variant="body2">{msg.text}</Typography>}
+
+                    {fileUrl && msg.fileName && (
+                        <Box>
+                            <Button
+                                component="a"
+                                size="small"
+                                sx={{ bgcolor: "white", color: "black", textTransform: "none" }}
+                                href={fileUrl}
+                                download={msg.fileName}
+                                onClick={() => setTimeout(() => URL.revokeObjectURL(fileUrl), 5000)}
+                                disabled={msg.sender === "me"}
+                            >
+                                Download {msg.fileName}
+                            </Button>
+                            <Typography variant="body2">This is file can only be downloaded ONCE.</Typography>
+                        </Box>
+                    )}
                 </Box>
             </Box>
     );
