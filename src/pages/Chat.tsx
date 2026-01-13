@@ -21,9 +21,9 @@ import {
   exportPublicKey,
   signData
 } from "../crypto/rsa";
-import { ArrayBufferSignatureToBase64 } from "../crypto/transport-codec"
 
 import { sanitizeDisplayName, sanitizeAvatarUrl, sanitizePeer } from "../helpers/xss";
+import { arrayBufferToBase64 } from "../helpers/buffer";
 
 type ChatStatus = "idle" | "connecting" | "ready" | "error";
 const API_URL = import.meta.env.VITE_API_URL;
@@ -195,7 +195,7 @@ const Chat = () => {
       const message = {
         type: "ROTATE_KEYS",
         payload,
-        signature: ArrayBufferSignatureToBase64(signature)
+        signature: arrayBufferToBase64(signature)
       };
 
       wsRef.current.send(JSON.stringify(message));

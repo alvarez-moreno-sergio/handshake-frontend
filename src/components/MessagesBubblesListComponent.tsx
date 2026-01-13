@@ -1,11 +1,15 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Box, IconButton, InputBase } from "@mui/material";
-import MessageBubbleComponent, { type MessageBubble, type Sender } from "./MessageBubbleComponent";
 import SendIcon from "@mui/icons-material/Send";
+
+import MessageBubbleComponent, { type MessageBubble, type Sender } from "./MessageBubbleComponent";
 import { type Hand, type ApiSafeHand } from "./HandComponent";
+
 import { encryptAndSignPayload, verifyAndDecrypt, type SignedEncryptedPayload } from "../crypto/hybrid-signed";
 import { decodeTransport, encodeTransport, type TransportSignedEncryptedPayload } from "../crypto/transport-codec";
+
 import { sanitizeAvatarUrl } from "../helpers/xss";
+import { arrayBufferToBase64 } from "../helpers/buffer";
 
 type MessageBubblesListComponentProps = {
     selectedHand?: ApiSafeHand | null;
@@ -238,15 +242,6 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
 };
 
 export default MessagesBubbleListComponent;
-
-function arrayBufferToBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
 
 function debugSignedEncryptedPayload(payload: SignedEncryptedPayload) {
   return {
