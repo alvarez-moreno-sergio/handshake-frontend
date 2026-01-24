@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import type { ApiSafeHand, Hand } from "../../components/HandComponent";
 import { exportPublicKey, generateRSAKeys, generateRSASigningKeys } from "../../crypto/rsa";
-import { CHUNK_SIZE, handleSendFile, handleIncomingFile, enqueueIncomingFile } from "../../crypto/secureFileTransfer";
+import { CHUNK_SIZE, handleSendFile, enqueueIncomingFile } from "../../crypto/secureFileTransfer";
 import { encryptAndSignPayload } from "../../crypto/hybrid-signed";
 import { encodeTransport, type FileMetadataMessage } from "../../crypto/transport-codec";
 import { arrayBufferToBase64 } from "../../helpers/buffer";
@@ -139,6 +139,7 @@ it("reassembles file from metadata + chunks + complete", async () => {
 
     await enqueueIncomingFile(
         {
+            fileName: "test",
             type: "file_chunk",
             from: fromApiSafeHand.uuid!,
             to: toHand.uuid!,
@@ -152,6 +153,7 @@ it("reassembles file from metadata + chunks + complete", async () => {
 
     await enqueueIncomingFile(
         {
+            fileName: "test",
             type: "file_chunk",
             from: fromApiSafeHand.uuid!,
             to: toHand.uuid!,
@@ -165,6 +167,7 @@ it("reassembles file from metadata + chunks + complete", async () => {
 
     const result = await enqueueIncomingFile(
         {
+            fileName: "test",
             type: "file_complete",
             from: fromApiSafeHand.uuid!,
             to: toHand.uuid!,
@@ -174,6 +177,6 @@ it("reassembles file from metadata + chunks + complete", async () => {
         toHand
     );
 
-    const text = new TextDecoder().decode(result!);
+    const text = new TextDecoder().decode(result!.fileData!);
     expect(text).toBe("foobar");
 });
