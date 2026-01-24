@@ -113,6 +113,7 @@ it("reassembles file from metadata + chunks + complete", async () => {
     const fileId = crypto.randomUUID();
 
     const metadata: FileMetadataMessage = {
+        fileName: "test",
         type: "file_metadata",
         from: fromHand.uuid!,
         to: toApiSafeHand.uuid!,
