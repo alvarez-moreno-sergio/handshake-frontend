@@ -1,11 +1,16 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Box, IconButton, InputBase } from "@mui/material";
-import MessageBubbleComponent, { type MessageBubble, type Sender } from "./MessageBubbleComponent";
 import SendIcon from "@mui/icons-material/Send";
+
+import MessageBubbleComponent, { type MessageBubble, type Sender } from "./MessageBubbleComponent";
 import { type Hand, type ApiSafeHand } from "./HandComponent";
+
 import { encryptAndSignPayload, verifyAndDecrypt, type SignedEncryptedPayload } from "../crypto/hybrid-signed";
 import { decodeTransport, encodeTransport, type TransportSignedEncryptedPayload } from "../crypto/transport-codec";
+
 import { sanitizeAvatarUrl } from "../helpers/xss";
+import { arrayBufferToBase64 } from "../helpers/buffer";
+import { enqueueIncomingFile, handleSendFile } from "../crypto/secureFileTransfer";
 
 type MessageBubblesListComponentProps = {
     selectedHand?: ApiSafeHand | null;
@@ -23,6 +28,7 @@ type ConversationMap = {
 const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand, handList, setUnreadMap } : MessageBubblesListComponentProps) => {
     const isDisabled = chatStatus !== "ready" || !selectedHand;
     const selectedHandRef = useRef<ApiSafeHand | null>(selectedHand || null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
     const bottomRef = useRef<HTMLDivElement | null>(null);
     const inputRef = useRef<HTMLInputElement | null>(null);
     const [inputText, setInputText] = useState("");
@@ -46,6 +52,44 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
     useEffect(() => {
         selectedHandRef.current = selectedHand ?? null;
     }, [selectedHand]);
+    
+    const handleFileSelected = async (
+        event: React.ChangeEvent<HTMLInputElement>
+    ) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+
+        // Clear input immediately to allow re-selecting the same file
+        event.target.value = "";
+
+        if (
+            !wsRef.current ||
+            wsRef.current.readyState !== WebSocket.OPEN ||
+            !ownHand ||
+            !selectedHand
+        ) {
+            return;
+        }
+
+        console.log("Handling sending file...");
+        const sentFile = await handleSendFile(
+            file,
+            ownHand,
+            selectedHand,
+            wsRef.current
+        );
+        
+        const timeStamp = Date.now().toString();
+        const fileMessage: MessageBubble = {
+            id: `${ownHand!.uuid}-${timeStamp}`,
+            sender: "me",
+            text: `File sent: ${sentFile?.fileName}`,
+            avatarUrl: ownHand!.avatarUrl,
+            fileData: new Uint8Array(),
+            fileName: `${sentFile?.fileName}`
+        };
+        appendMessage(selectedHand.uuid!, fileMessage);
+    };
     
     const SendMessage = async (sender: Sender, text: string) => {
         const trimmed = text.trim();
@@ -140,8 +184,38 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
                 if (!data || typeof data !== "object" || typeof data.type !== "string") {
                     return;
                 }
+
                 if (data.type === "message") {
                     ReceiveMessage(data.content, data.from);
+                }
+
+                if (["file_metadata", "file_chunk", "file_complete"].includes(data.type)) {
+                    (async () => {
+                        const fileSender = handList.find(h => h.uuid === data.from);
+                        if (!fileSender) return;
+
+                        const receivedFile = await enqueueIncomingFile(data, fileSender!, ownHand!);
+                        if (receivedFile) {
+                            console.log(`Completed received file ${data.fileId}: `, receivedFile);
+                            const timeStamp = Date.now().toString();
+                            const fileMessageThem: MessageBubble = {
+                                id: `${fileSender.uuid}-${timeStamp}`,
+                                sender: "them",
+                                text: `File received: ${receivedFile.fileName}`,
+                                avatarUrl: fileSender.avatarUrl,
+                                fileData: receivedFile.fileData!,
+                                fileName: `${receivedFile.fileName}`
+                            };
+                            appendMessage(fileSender.uuid!, fileMessageThem);
+
+                            if (fileSender.uuid !== selectedHandRef.current?.uuid) {
+                                setUnreadMap(prev => ({
+                                    ...prev,
+                                    [fileSender.uuid!]: (prev[fileSender.uuid!] || 0) + 1
+                                }));
+                            }
+                        }
+                    })()
                 }
             } catch (err) {
                 console.error("Error parsing WebSocket message:", err);
@@ -153,7 +227,7 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
         return () => {
             ws.removeEventListener("message", handleMessage);
         };
-    }, [wsRef, ownHand?.uuid, ownHand, handList, setUnreadMap]);
+    }, [wsRef, ownHand, handList, setUnreadMap]);
 
     return (
         <>
@@ -185,7 +259,13 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
             >
 
                 {/* Attachment button */}
-                <IconButton color="primary" sx={{ mr: 1, ":hover": { backgroundColor: "primary.main", color: "white" } }} >
+                <IconButton color="primary" sx={{
+                    mr: 1,
+                    ":hover": { backgroundColor: "primary.main", color: "white" }
+                }}
+                disabled={isDisabled}
+                onClick={() => fileInputRef.current?.click()}
+                >
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
@@ -200,6 +280,13 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
                     <path d="M21.44 11.05l-9.19 9.19a3 3 0 01-4.24-4.24l9.19-9.19a2 2 0 112.83 2.83l-8.49 8.49a1 1 0 11-1.41-1.41l7.78-7.78"/>
                 </svg>
                 </IconButton>
+                <input
+                    type="file"
+                    ref={fileInputRef}
+                    style={{ display: "none" }}
+                    onChange={handleFileSelected}
+                />
+
 
                 <InputBase
                 key={selectedHand?.uuid ?? "no-hand"}
@@ -229,7 +316,10 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
                     }
                 }}
                 />
-                <IconButton color="primary" sx={{ ml: 1, ":hover": { backgroundColor: "primary.main", color: "white" } }}>
+                <IconButton color="primary"
+                sx={{ ml: 1, ":hover": { backgroundColor: "primary.main", color: "white" }}}
+                disabled={isDisabled}
+                >
                     <SendIcon onClick={() => SendMessage("me", inputText)} />
                 </IconButton>
             </Box>
@@ -238,15 +328,6 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
 };
 
 export default MessagesBubbleListComponent;
-
-function arrayBufferToBase64(buf: ArrayBuffer): string {
-  const bytes = new Uint8Array(buf);
-  let binary = "";
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
-}
 
 function debugSignedEncryptedPayload(payload: SignedEncryptedPayload) {
   return {

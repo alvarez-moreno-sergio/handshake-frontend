@@ -9,7 +9,7 @@ import {
   Box,
   Button
 } from "@mui/material";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import HandsListComponent from "../components/HandsListComponent";
 import HandComponent, { type Hand, type ApiSafeHand } from "../components/HandComponent";
@@ -21,9 +21,9 @@ import {
   exportPublicKey,
   signData
 } from "../crypto/rsa";
-import { ArrayBufferSignatureToBase64 } from "../crypto/transport-codec"
 
 import { sanitizeDisplayName, sanitizeAvatarUrl, sanitizePeer } from "../helpers/xss";
+import { arrayBufferToBase64 } from "../helpers/buffer";
 
 type ChatStatus = "idle" | "connecting" | "ready" | "error";
 const API_URL = import.meta.env.VITE_API_URL;
@@ -39,8 +39,12 @@ const Chat = () => {
   const [selectedHand, setSelectedHand] = useState<ApiSafeHand | null>(null);
   const [handList, setHandList] = useState<ApiSafeHand[]>([]);
   const [chatStatus, setChatStatus] = useState<ChatStatus>("idle");
+  const isDisabled = useMemo(() => 
+    chatStatus !== "ready" || !selectedHand
+  , [chatStatus, selectedHand]);
   const [unreadMap, setUnreadMap] = useState<Record<string, number>>({});
 
+  const handListRef = useRef<ApiSafeHand[]>(handList);
   const selectedHandRef = useRef<ApiSafeHand | null>(null);
   const rotatedKeysHandRef = useRef<Hand | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
@@ -93,6 +97,23 @@ const Chat = () => {
     setOwnHand(localHand);
   }, []);
 
+  // function downloadFile(fileData: Uint8Array<ArrayBufferLike> | ArrayBuffer, fileName: string) {
+  //   const data = fileData instanceof Uint8Array
+  //     ? new Uint8Array(Array.from(fileData)) // ensures standard ArrayBuffer
+  //     : new Uint8Array(fileData);
+
+  //   const blob = new Blob([data], { type: "application/octet-stream" });
+  //   const url = URL.createObjectURL(blob);
+
+  //   const a = document.createElement("a");
+  //   a.href = url;
+  //   a.download = fileName;
+  //   document.body.appendChild(a);
+  //   a.click();
+  //   document.body.removeChild(a);
+  //   URL.revokeObjectURL(url);
+  // }
+
   const openWebSocket = useCallback((uuid: string): WebSocket => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) return wsRef.current;
 
@@ -110,6 +131,7 @@ const Chat = () => {
         return;
       }
 
+      console.log("Received WS event: ", data.type);
       if (data.type === "peerList") {
         const peers: ApiSafeHand[] = data.peers
           .filter((h: ApiSafeHand) => h.uuid !== handRef.current?.uuid)
@@ -195,7 +217,7 @@ const Chat = () => {
       const message = {
         type: "ROTATE_KEYS",
         payload,
-        signature: ArrayBufferSignatureToBase64(signature)
+        signature: arrayBufferToBase64(signature)
       };
 
       wsRef.current.send(JSON.stringify(message));
@@ -280,6 +302,10 @@ const Chat = () => {
 
     setProfileOpen(false);
   }
+
+  useEffect(() => {
+    handListRef.current = handList;
+  }, [handList]);
 
   // -----------------------------
   // Render
@@ -380,12 +406,11 @@ const Chat = () => {
               variant="contained"
               sx={{ ml: "auto" }}
               onClick={async () => rotateKeys()}
+              disabled={isDisabled}
             >
                 Rotate keys
             </Button>
           </Box>
-
-
 
           {ownHand && (
           <MessagesBubbleListComponent
@@ -397,7 +422,6 @@ const Chat = () => {
             setUnreadMap={setUnreadMap}
           />
         )}
-
         </Box>
       </Box>
       <Dialog open={profileOpen} maxWidth="xs" fullWidth disableEscapeKeyDown>
