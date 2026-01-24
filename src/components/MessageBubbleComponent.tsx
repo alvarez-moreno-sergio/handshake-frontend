@@ -1,4 +1,11 @@
-import { Box, Typography, Avatar, Button } from "@mui/material";
+import {
+    Box,
+    Typography,
+    Avatar,
+    Button,
+    Paper,
+} from "@mui/material";
+import InsertDriveFileIcon from "@mui/icons-material/InsertDriveFile";
 import type { SignedEncryptedPayload } from "../crypto/hybrid-signed";
 import { sanitizeAvatarUrl } from "../helpers/xss";
 import { useMemo } from "react";
@@ -13,72 +20,112 @@ export type MessageBubble = {
     fileData?: Uint8Array<ArrayBufferLike> | ArrayBuffer;
     fileName?: string;
 };
-const MessageBubbleComponent = (msg : MessageBubble) => {    
+
+const MessageBubbleComponent = (msg: MessageBubble) => {
     const fileUrl = useMemo(() => {
-        const data = msg.fileData && msg.fileData instanceof Uint8Array
-            ? new Uint8Array(Array.from(msg.fileData)) // ensures standard ArrayBuffer
-            : new Uint8Array(msg.fileData!);
+        if (!msg.fileData) return null;
 
-        if (!data) return null;
+        const data = new Uint8Array(msg.fileData);
+        const file = new File(
+            [data],
+            msg.fileName!
+        );
+        return URL.createObjectURL(file);
+    }, [msg.fileData, msg.fileName]);
 
-        const blob = new Blob([data]);
-        return URL.createObjectURL(blob);
-    }, [msg.fileData]);
-  
+    const isMe = msg.sender === "me";
+    const hasFile = Boolean(fileUrl && msg.fileName);
+
     return (
-            <Box
+        <Box
+            sx={{
+                display: "flex",
+                alignItems: "flex-end",
+                gap: 1,
+                alignSelf: isMe ? "flex-end" : "flex-start",
+                flexDirection: isMe ? "row-reverse" : "row",
+            }}
+        >
+            {/* Avatar */}
+            <Avatar
+                src={sanitizeAvatarUrl(msg.avatarUrl!) || undefined}
                 sx={{
-                    display: "flex",
-                    alignItems: "flex-end",
-                    gap: 1,
-                    alignSelf: msg.sender === "me" ? "flex-end" : "flex-start",
-                    flexDirection: msg.sender === "me" ? "row-reverse" : "row",
-                }}
-                >
-                {/* Avatar */}
-                <Avatar
-                    src={sanitizeAvatarUrl(msg.avatarUrl!) || undefined}
-                    sx={{
                     width: 28,
                     height: 28,
                     fontSize: 14,
-                    bgcolor: msg.sender === "me" ? "primary.main" : "secondary.main",
-                    }}
-                >
-                    {msg.sender === "me" ? "Me" : "?"}
-                </Avatar>
+                    bgcolor: isMe ? "primary.main" : "secondary.main",
+                }}
+            >
+                {isMe ? "Me" : "?"}
+            </Avatar>
 
-                {/* Message bubble */}
-                <Box
-                    id={msg.id}
-                    sx={{
-                    bgcolor: msg.sender === "me" ? "primary.main" : "secondary.main",
+            {/* Message bubble */}
+            <Box
+                id={msg.id}
+                sx={{
+                    bgcolor: hasFile
+                        ? isMe
+                            ? "primary.dark"
+                            : "secondary.dark"
+                        : isMe
+                        ? "primary.main"
+                        : "secondary.main",
                     color: "white",
                     p: 1.5,
                     borderRadius: 2,
                     maxWidth: "70%",
-                    }}
-                >
-                    {!msg.fileData && <Typography variant="body2">{msg.text}</Typography>}
+                }}
+            >
+                {/* Text message */}
+                {!hasFile && (
+                    <Typography variant="body2">{msg.text}</Typography>
+                )}
 
-                    {fileUrl && msg.fileName && (
-                        <Box>
-                            <Button
-                                component="a"
-                                size="small"
-                                sx={{ bgcolor: "white", color: "black", textTransform: "none" }}
-                                href={fileUrl}
-                                download={msg.fileName}
-                                onClick={() => setTimeout(() => URL.revokeObjectURL(fileUrl), 5000)}
-                                disabled={msg.sender === "me"}
+                {/* File message */}
+                {hasFile && (
+                    <Paper
+                        elevation={0}
+                        sx={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 1.5,
+                            p: 1,
+                            bgcolor: "rgba(255,255,255,0.9)",
+                            color: "text.primary",
+                            borderRadius: 1.5,
+                        }}
+                    >
+                        <InsertDriveFileIcon color="action" />
+
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography
+                                variant="body2"
+                                sx={{
+                                    fontWeight: 500,
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                }}
                             >
-                                Download {msg.fileName}
-                            </Button>
-                            <Typography variant="body2">This is file can only be downloaded ONCE.</Typography>
+                                {msg.fileName}
+                            </Typography>
                         </Box>
-                    )}
-                </Box>
+
+                        <Button
+                            component="a"
+                            href={fileUrl!}
+                            download={msg.fileName}
+                            size="small"
+                            variant="contained"
+                            disabled={isMe}
+                            sx={{ textTransform: "none" }}
+                        >
+                            Download
+                        </Button>
+                    </Paper>
+                )}
             </Box>
+        </Box>
     );
 };
 

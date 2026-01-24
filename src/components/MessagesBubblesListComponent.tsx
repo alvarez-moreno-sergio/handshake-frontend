@@ -72,7 +72,7 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
         }
 
         console.log("Handling sending file...");
-        const fileId = await handleSendFile(
+        const sentFile = await handleSendFile(
             file,
             ownHand,
             selectedHand,
@@ -83,10 +83,10 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
         const fileMessage: MessageBubble = {
             id: `${ownHand!.uuid}-${timeStamp}`,
             sender: "me",
-            text: `File sent: ${fileId}`,
+            text: `File sent: ${sentFile?.fileName}`,
             avatarUrl: ownHand!.avatarUrl,
             fileData: new Uint8Array(),
-            fileName: `${fileId}-${timeStamp}.bin`
+            fileName: `${sentFile?.fileName}`
         };
         appendMessage(selectedHand.uuid!, fileMessage);
     };
@@ -194,17 +194,17 @@ const MessagesBubbleListComponent = ({ selectedHand, chatStatus, wsRef, ownHand,
                         const fileSender = handList.find(h => h.uuid === data.from);
                         if (!fileSender) return;
 
-                        const result = await enqueueIncomingFile(data, fileSender!, ownHand!);
-                        if (result) {
-                            console.log(`Completed received file ${data.fileId}: `, result);
+                        const receivedFile = await enqueueIncomingFile(data, fileSender!, ownHand!);
+                        if (receivedFile) {
+                            console.log(`Completed received file ${data.fileId}: `, receivedFile);
                             const timeStamp = Date.now().toString();
                             const fileMessageThem: MessageBubble = {
                                 id: `${fileSender.uuid}-${timeStamp}`,
                                 sender: "them",
-                                text: `File received: ${data.fileId}`,
+                                text: `File received: ${receivedFile.fileName}`,
                                 avatarUrl: fileSender.avatarUrl,
-                                fileData: result,
-                                fileName: `${data.fileId}-${timeStamp}.bin`
+                                fileData: receivedFile.fileData!,
+                                fileName: `${receivedFile.fileName}`
                             };
                             appendMessage(fileSender.uuid!, fileMessageThem);
 

@@ -2,7 +2,7 @@ import type { ApiSafeHand, Hand } from "../components/HandComponent";
 
 import { encryptAndSignPayload, verifyAndDecrypt, type SignedEncryptedPayload } from "./hybrid-signed";
 
-import { encodeTransport, type FileMetadataMessage, type FileChunkMessage, type FileCompleteMessage, type IncomingFileMessage, decodeTransport, type Transport } from "./transport-codec";
+import { encodeTransport, type FileMetadataMessage, type FileChunkMessage, type FileCompleteMessage, type IncomingFileMessage, decodeTransport, type Transport, type ReassembledFile } from "./transport-codec";
 
 import { arrayBufferToBase64, base64ToArrayBuffer } from "../helpers/buffer";
 
@@ -14,9 +14,9 @@ export async function handleSendFile(
     fromHand: Hand,
     toApiSafeHand: ApiSafeHand,
     ws: WebSocket
-) {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    if (!file || !fromHand.uuid || !toApiSafeHand.uuid) return;
+): Promise<ReassembledFile | null> {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return null;
+    if (!file || !fromHand.uuid || !toApiSafeHand.uuid) return null;
 
     const fileId = crypto.randomUUID();
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
@@ -37,7 +37,10 @@ export async function handleSendFile(
         file,
         ws
     );
-    return fileId;
+    return {
+        fileName: file.name,
+        fileData: null
+    }
 }
 
 function sendFileMetadata(
@@ -50,6 +53,7 @@ function sendFileMetadata(
 ) {
     const metadata: FileMetadataMessage = {
         type: "file_metadata",
+        fileName: file.name,
         from,
         to,
         fileId,
@@ -81,6 +85,7 @@ async function sendFile(
 
         const chunk: FileChunkMessage = {
             type: "file_chunk",
+            fileName: file.name,
             from: fromHand.uuid!,
             to: toApiSafeHand.uuid!,
             fileId,
@@ -100,6 +105,7 @@ async function sendFile(
 
     const complete: FileCompleteMessage = {
         type: "file_complete",
+        fileName: file.name,
         from: fromHand.uuid!,
         to: toApiSafeHand.uuid!,
         fileId
@@ -122,7 +128,7 @@ export async function enqueueIncomingFile(
     msg: IncomingFileMessage,
     fromApiSafeHand: ApiSafeHand,
     toHand: Hand
-): Promise<Uint8Array | null> {
+): Promise<ReassembledFile | null> {
     if (!queue.get(msg.fileId)) {
         queue.set(msg.fileId, []);
     }
@@ -151,7 +157,10 @@ export async function enqueueIncomingFile(
     queue.delete(msg.fileId);
 
     // Return reassembled file
-    return finalizeTransfer(msg.fileId) || null;
+    return { 
+        fileName: msg.fileName,
+        fileData: finalizeTransfer(msg.fileId) || null
+    };
 }
 
 

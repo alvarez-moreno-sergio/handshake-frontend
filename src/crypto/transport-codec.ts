@@ -62,6 +62,7 @@ export interface Transport {
 
 export type FileMetadataMessage = {
   type: "file_metadata";
+  fileName: string;
   from: string;
   to: string;
   fileId: string;
@@ -71,6 +72,7 @@ export type FileMetadataMessage = {
 
 export type FileChunkMessage = {
   type: "file_chunk";
+  fileName: string;
   from: string;
   to: string;
   fileId: string;
@@ -80,10 +82,16 @@ export type FileChunkMessage = {
 
 export type FileCompleteMessage = {
   type: "file_complete";
+  fileName: string;
   from: string;
   to: string;
   fileId: string;
 };
+
+export type ReassembledFile = {
+  fileName: string;
+  fileData: Uint8Array | null;
+}
 
 export type IncomingFileMessage = 
   | FileMetadataMessage
